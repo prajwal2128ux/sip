@@ -145,14 +145,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className="flex items-center gap-2.5 min-w-0 cursor-pointer"
             >
               <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs shrink-0">
-                {user.name.charAt(0)}
+                {(user.name && user.name !== 'Dr. Alex Morgan' && user.name !== 'Elena Rostova'
+                  ? user.name
+                  : 'User').charAt(0)}
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-semibold text-slate-900 truncate">
-                  {user.name}
+                  {user.name && user.name !== 'Dr. Alex Morgan' && user.name !== 'Elena Rostova'
+                    ? user.name
+                    : 'My Account'}
                 </p>
                 <p className="text-[11px] text-slate-700 truncate">
-                  {user.role}
+                  {user.role && user.name !== 'Dr. Alex Morgan' && user.name !== 'Elena Rostova'
+                    ? user.role
+                    : 'Academic Member'}
                 </p>
               </div>
             </div>

@@ -189,7 +189,7 @@ export const DetailedReportPage: React.FC<DetailedReportPageProps> = ({
           <div>
             <span className="text-slate-700 font-semibold block mb-0.5">REFERENCE CORPUS</span>
             <span className="font-medium text-slate-800">
-              Wikipedia MediaWiki API + Academic Reference Repository
+              Live Wikipedia API + Crossref Academic + DuckDuckGo + Open Library
             </span>
           </div>
         </div>
@@ -236,7 +236,11 @@ export const DetailedReportPage: React.FC<DetailedReportPageProps> = ({
               {analysis.aiProbabilityPercentage ?? 0}%
             </span>
             <span className="text-[10px] text-purple-800 block mt-1 truncate">
-              {analysis.aiVerdict ? analysis.aiVerdict.split(' ')[0] + ' ' + analysis.aiVerdict.split(' ')[1] : 'AI Assessed'}
+              {analysis.similarityPercentage >= 40 && (analysis.aiProbabilityPercentage || 0) < 40
+                ? 'Plagiarized Source'
+                : analysis.aiVerdict
+                ? analysis.aiVerdict.split(' ')[0] + ' ' + analysis.aiVerdict.split(' ')[1]
+                : 'AI Assessed'}
             </span>
           </div>
 
@@ -292,6 +296,7 @@ export const DetailedReportPage: React.FC<DetailedReportPageProps> = ({
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-semibold uppercase text-[11px]">
                   <tr>
                     <th className="py-2.5 px-3">#</th>
+                    <th className="py-2.5 px-3">Search Engine</th>
                     <th className="py-2.5 px-3">Source Title</th>
                     <th className="py-2.5 px-3">Match %</th>
                     <th className="py-2.5 px-3">Phrases</th>
@@ -302,6 +307,11 @@ export const DetailedReportPage: React.FC<DetailedReportPageProps> = ({
                   {analysis.sources.map((src, i) => (
                     <tr key={src.id || i} className="hover:bg-slate-50/50">
                       <td className="py-2.5 px-3 font-semibold text-slate-700">{i + 1}</td>
+                      <td className="py-2.5 px-3">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-800 border border-slate-200 whitespace-nowrap">
+                          {src.searchEngine || 'Wikipedia Live API'}
+                        </span>
+                      </td>
                       <td className="py-2.5 px-3 font-semibold text-slate-900">{src.sourceName}</td>
                       <td className="py-2.5 px-3 font-bold text-blue-600">{src.matchPercentage}%</td>
                       <td className="py-2.5 px-3 text-slate-600">{src.matchedPhrasesCount}</td>

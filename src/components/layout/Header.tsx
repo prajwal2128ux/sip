@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { Menu, Database, Plus, Cpu } from 'lucide-react';
+import { Menu, Database, Plus, Globe } from 'lucide-react';
 import { PageRoute } from '../../types';
 import { getApiStatus } from '../../config/apiConfig';
 
@@ -72,14 +72,14 @@ export const Header: React.FC<HeaderProps> = ({
             />
             <span className="text-slate-500">API:</span>
             <span className="font-semibold text-slate-700">
-              {apiStatus.isConnected ? apiStatus.provider : 'Built-in Engine'}
+              {apiStatus.isConnected ? 'Active' : 'Built-in'}
             </span>
           </div>
 
-          <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-50 border border-slate-200 text-xs text-slate-600">
-            <Database className="w-3.5 h-3.5 text-emerald-600" />
-            <span className="text-slate-700">Corpus:</span>
-            <span className="font-semibold text-slate-700">Active</span>
+          <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50/80 border border-emerald-200 text-xs text-emerald-800">
+            <Globe className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            <span className="text-emerald-700 font-medium">Search Engines:</span>
+            <span className="font-semibold text-emerald-900">Wikipedia & Multi-Search Live</span>
           </div>
 
           {currentPage !== 'checker' && (

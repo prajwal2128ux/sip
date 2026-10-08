@@ -223,7 +223,9 @@ export function generateAndDownloadPdf(report: PlagiarismReport, user?: User | n
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8.5);
       doc.setTextColor(navy[0], navy[1], navy[2]);
-      const titleTruncated = src.sourceName.length > 55 ? src.sourceName.slice(0, 52) + '...' : src.sourceName;
+      const engineTag = src.searchEngine ? ` [${src.searchEngine}]` : '';
+      const fullTitle = `${src.sourceName}${engineTag}`;
+      const titleTruncated = fullTitle.length > 55 ? fullTitle.slice(0, 52) + '...' : fullTitle;
       doc.text(titleTruncated, margin + 3, y);
 
       doc.setFont('helvetica', 'bold');

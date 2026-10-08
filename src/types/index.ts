@@ -39,6 +39,7 @@ export interface AnalysisSource {
   matchedText: string;
   matchPercentage: number;
   matchedPhrasesCount: number;
+  searchEngine?: string; // 'Wikipedia Live API' | 'DuckDuckGo Search' | 'Crossref Academic DOI' | 'Open Library'
 }
 
 export interface Analysis {

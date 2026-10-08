@@ -43,6 +43,11 @@ export const SourceCard: React.FC<SourceCardProps> = ({
             {index + 1}
           </div>
           <div>
+            <div className="flex items-center gap-2 flex-wrap mb-0.5">
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-800 border border-slate-200">
+                {source.searchEngine || 'Wikipedia Live API'}
+              </span>
+            </div>
             <div className="flex items-center gap-2">
               <h4 className="text-sm font-semibold text-slate-900 line-clamp-1">
                 {source.sourceName}

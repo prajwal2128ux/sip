@@ -27,8 +27,8 @@ const STEPS = [
   },
   {
     id: 3,
-    title: 'Reference Content Search',
-    desc: 'Querying Wikipedia API & academic corpus for relevant benchmark documents',
+    title: 'Multi-Search Engine & Wikipedia Query',
+    desc: 'Querying Live Wikipedia API, Crossref Academic, DuckDuckGo & Open Library in parallel',
     icon: Search
   },
   {

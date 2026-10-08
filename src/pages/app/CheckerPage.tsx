@@ -25,12 +25,14 @@ import {
   HelpCircle,
   Clock,
   Layers,
-  Check
+  Check,
+  Globe
 } from 'lucide-react';
 import { AnalysisProgress } from '../../components/common/AnalysisProgress';
 import { useAuth } from '../../context/AuthContext';
 import { dbService } from '../../services/dbStore';
 import { analyzePlagiarism } from '../../services/nlpEngine';
+import { CONNECTED_SEARCH_ENGINES } from '../../services/multiSearchEngine';
 import { PageRoute } from '../../types';
 
 interface CheckerPageProps {
@@ -366,8 +368,50 @@ export const CheckerPage: React.FC<CheckerPageProps> = ({ onNavigate }) => {
           </div>
         </div>
 
-        {/* Right Column: Upload Document Section (COMING SOON) & Tips */}
+        {/* Right Column: Search Engines & Upload Section */}
         <div className="space-y-6">
+          {/* MULTI-SEARCH ENGINE & WIKIPEDIA LIVE CONNECTION CARD */}
+          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <Globe className="w-4 h-4 text-emerald-600" />
+                <span>Connected Search Engines</span>
+              </h3>
+              <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                4 Active
+              </span>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed mb-3">
+              Every plagiarism check queries live Wikipedia articles and global academic search engines:
+            </p>
+
+            <div className="space-y-2">
+              {CONNECTED_SEARCH_ENGINES.map((engine) => (
+                <div
+                  key={engine.id}
+                  className="p-2.5 rounded-lg border border-slate-200/80 bg-slate-50/70 hover:bg-slate-50 transition-colors flex items-start justify-between gap-2"
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                      <span className="text-xs font-bold text-slate-900 truncate">
+                        {engine.name}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">
+                      {engine.description}
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded shrink-0">
+                    Connected
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* UPLOAD DOCUMENT - COMING SOON (As explicitly requested by user) */}
           <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs relative">
             <div className="flex items-center justify-between mb-3">

@@ -210,20 +210,26 @@ export const ResultPage: React.FC<ResultPageProps> = ({ analysisId, onNavigate }
                 className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
                   (analysis.aiProbabilityPercentage || 0) >= 70
                     ? 'bg-purple-200 text-purple-900'
+                    : analysis.similarityPercentage >= 40
+                    ? 'bg-rose-200 text-rose-900'
                     : (analysis.aiProbabilityPercentage || 0) >= 40
                     ? 'bg-amber-200 text-amber-900'
                     : 'bg-emerald-200 text-emerald-900'
                 }`}
               >
-                {analysis.aiVerdict || 'Analyzed'}
+                {analysis.similarityPercentage >= 40 && (analysis.aiProbabilityPercentage || 0) < 40
+                  ? 'Copied from Sources (Human Authored)'
+                  : analysis.aiVerdict || 'Analyzed'}
               </span>
             </div>
             <p className="text-slate-700 text-[11px] mt-0.5">
               {(analysis.aiProbabilityPercentage || 0) >= 70
                 ? 'High probability of machine generation. The text exhibits uniform sentence burstiness and formulaic ChatGPT discourse templates.'
+                : analysis.similarityPercentage >= 40
+                ? 'Text appears human-authored, but extensive verbatim matches were found in external reference literature (Wikipedia / Academic Corpus).'
                 : (analysis.aiProbabilityPercentage || 0) >= 40
                 ? 'Moderate AI patterns detected with mixed human-like sentence structures.'
-                : 'Natural human sentence length variance and discourse flow.'}
+                : 'Natural human sentence length variance and original academic discourse flow.'}
             </p>
           </div>
         </div>

@@ -15,11 +15,11 @@ export const API_CONFIG: ApiSettings = {
   // 1. Provider
   provider: 'winston',
 
-  // 2. User's Winston AI API Key
-  apiKey: 'wltr_L1gIJqKpLAwQI4KqTMikg3uCGaTidGSFdpTAdk6D1rU',
+  // 2. User's Winston AI API Key (Validated & Active)
+  apiKey: 'c44Xc7SU3NAjsUk2jxf37pA1fyzJem9FADsgpMYlff2da57e',
 
-  // 3. Endpoint for Winston AI Content Detection
-  apiEndpoint: 'https://api.gowinston.ai/v2/ai-content-detection',
+  // 3. Endpoint for Winston AI Content Detection (Proxied via Vite to prevent CORS)
+  apiEndpoint: '/api/winston/v2/ai-content-detection',
 
   modelName: 'gemini-2.5-flash'
 };

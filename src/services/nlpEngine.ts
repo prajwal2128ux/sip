@@ -11,6 +11,7 @@
 
 import { AnalysisSource, NLPAnalysisResult, RiskLevel, TextMatchSpan } from '../types';
 import { API_CONFIG, isCustomApiConfigured } from '../config/apiConfig';
+import { searchAllConnectedEngines, ReferenceDocument } from './multiSearchEngine';
 
 // Standard English Stop Words
 const STOP_WORDS = new Set([
@@ -32,13 +33,7 @@ const STOP_WORDS = new Set([
   'yourselves'
 ]);
 
-export interface ReferenceDocument {
-  id: string;
-  title: string;
-  url: string;
-  sourceType: 'Wikipedia' | 'Academic Journal' | 'Open Textbook';
-  content: string;
-}
+export type { ReferenceDocument };
 
 /**
  * 1. Normalize and clean string
@@ -327,33 +322,7 @@ export function resolveUniversalReferences(text: string): ReferenceDocument[] {
     });
   }
 
-  // 6. Generic Universal Fallback for ANY OTHER TOPIC
-  // If the user submits text on any arbitrary topic (e.g. dogs, oceans, solar system, literature)
-  // construct a high-relevance Wikipedia reference article directly from the submitted entities!
-  if (references.length === 0) {
-    const words = tokenize(text, true);
-    const topKeywords = Array.from(new Set(words)).slice(0, 6);
-    const mainTopic = topKeywords[0] ? topKeywords[0].charAt(0).toUpperCase() + topKeywords[0].slice(1) : 'Topic Overview';
-    const subTopic = topKeywords[1] ? topKeywords[1].charAt(0).toUpperCase() + topKeywords[1].slice(1) : 'General Concepts';
-
-    references.push(
-      {
-        id: `ref-universal-wiki-1`,
-        title: `Wikipedia: ${mainTopic}`,
-        url: `https://en.wikipedia.org/wiki/${encodeURIComponent(mainTopic)}`,
-        sourceType: 'Wikipedia',
-        content: `${mainTopic} represents a fundamental subject of natural, scientific, and cultural study. In modern literature and reference encyclopedia entries, ${mainTopic} and ${subTopic} are categorized by their diverse forms, functional applications, environmental significance, and ongoing developmental progress.`
-      },
-      {
-        id: `ref-universal-wiki-2`,
-        title: `Open Academic Index: Research & Studies on ${mainTopic}`,
-        url: `https://en.wikipedia.org/wiki/${encodeURIComponent(mainTopic)}#Overview`,
-        sourceType: 'Academic Journal',
-        content: `Comprehensive academic and scientific literature examining the taxonomy, structural characteristics, behavior, and global significance of ${mainTopic} and associated ${subTopic} systems.`
-      }
-    );
-  }
-
+  // 6. Return curated references (empty if text does not match curated benchmarks)
   return references;
 }
 
@@ -380,24 +349,40 @@ export interface AiDetectionResult {
   aiIndices: Set<number>;
 }
 
+// Universal patterns exhibited across all ChatGPT and LLM generated topics:
 const UNIVERSAL_CHATGPT_PATTERNS = [
-  /\b(are (fascinating|useful|popular|convenient|important) [a-z]+ that are found in|means of transportation in the modern world)\b/i,
-  /\b(they come in different (sizes|shapes|colors|species|types))\b/i,
-  /\b(there are (many|different) types of [a-z]+, including)\b/i,
-  /\b(some common [a-z]+ include [a-z\s,]+ and [a-z]+)\b/i,
-  /\b(live in forests, mountains, grasslands|in almost every part of the world)\b/i,
-  /\b(they eat different types of food such as|eat a variety of food)\b/i,
-  /\b(build nests in trees, buildings, or other safe places where they can lay their eggs)\b/i,
-  /\b(they play an important role in [a-z\s]+ by [a-z\s,]+ and helping)\b/i,
-  /\b(some [a-z]+ are (known|famous) for their [a-z\s]+ while others are (famous|known) for)\b/i,
-  /\b(also migrate long distances to find food and suitable weather conditions)\b/i,
-  /\b(protecting [a-z\s]+, reducing pollution, and providing clean water can help protect)\b/i,
-  /\b([a-z]+ make nature more beautiful and are an important part of our environment)\b/i,
-  /\b(overall,\s+[a-z]+ (are an important part of|continue to play an important role))\b/i,
-  /\b(modern [a-z]+ come with advanced features such as)\b/i,
-  /\b(a good [a-z]+ should provide safety, comfort)\b/i,
-  /\b(companies such as [a-z\s,]+ (manufacture|produce))\b/i,
-  /\b(are becoming (more )?popular because they produce no direct emissions|because they reduce fuel consumption)\b/i
+  /^(overall,|in conclusion,|to sum up,|furthermore,|moreover,|additionally,|in addition,|consequently,|ultimately,|in summary,)/i,
+  /\b(plays? (an? )?(important|crucial|vital|significant|key|central|essential) role (in|for|across|by))\b/i,
+  /\b(serves? as (an? )?(important|vital|crucial|key|primary|indispensable))\b/i,
+  /\b(a (wide|broad|diverse) (range|variety|array|selection) of)\b/i,
+  /\b(different (types|kinds|forms|categories|aspects|species) of)\b/i,
+  /\b(not only [a-z\s,]+ but also)\b/i,
+  /\b(from [a-z\s,]+ to [a-z\s,]+)\b/i,
+  /\b(in (today's world|the modern world|our daily lives|recent years|modern society|almost every part of the world))\b/i,
+  /\b(continue(s)? to (play|evolve|shape|grow|improve|transform|remain))\b/i,
+  /\b(has become an? (important|integral|essential|indispensable) part of)\b/i,
+  /\b(are (fascinating|popular|convenient|useful|important|essential) [a-z]+ that (are|help|can|have))\b/i,
+  /\b(they (come in|are known for|offer|provide|can be found|eat different|live in))\b/i,
+  /\b(there are (many|various|different|several) (types|kinds|forms|categories|ways|breeds) of)\b/i,
+  /\b(some common [a-z]+ include)\b/i,
+  /\b(modern [a-z]+ (come with|feature|are equipped with|offer|provide))\b/i,
+  /\b(a good [a-z]+ should (provide|offer|have|ensure))\b/i,
+  /\b(with the (development|rise|advancement|growth|emergence) of)\b/i,
+  /\b(while some [a-z\s,]+ (others|while others))\b/i,
+  /\b(it is (essential|important|crucial|worth noting|imperative) to)\b/i,
+  /\b(testament to|delve into|navigating the|harnessing the|revolutionizing|fostering|multifaceted|beacon of|tapestry of|cornerstone of)\b/i,
+  /\b(build nests in trees|protecting forests|reducing pollution|make nature more beautiful)\b/i,
+  /\b(companies such as [a-z\s,]+ (manufacture|produce|develop))\b/i,
+  /\b(are becoming (more )?popular because they)\b/i
+];
+
+const CHATGPT_LEXICAL_MARKERS = [
+  'crucial', 'vital', 'important', 'role', 'variety', 'various', 'different',
+  'overall', 'furthermore', 'additionally', 'moreover', 'modern', 'provides',
+  'including', 'fascinating', 'essential', 'significant', 'integral', 'landscape',
+  'testament', 'delve', 'foster', 'tapestry', 'multifaceted', 'navigating',
+  'harnessing', 'revolutionizing', 'beacon', 'cornerstone', 'indispensable',
+  'convenient', 'ecosystem', 'sustainable', 'ethical', 'society', 'evolution'
 ];
 
 export function detectAiGeneratedPatterns(sentences: RawSentence[]): AiDetectionResult {
@@ -411,17 +396,32 @@ export function detectAiGeneratedPatterns(sentences: RawSentence[]): AiDetection
   }
 
   const aiIndices = new Set<number>();
-  let matchHits = 0;
+  let patternHits = 0;
+  let lexicalHits = 0;
 
   sentences.forEach((s, idx) => {
-    let hasMarker = false;
+    let matched = false;
     for (const pattern of UNIVERSAL_CHATGPT_PATTERNS) {
       if (pattern.test(s.text)) {
-        hasMarker = true;
-        matchHits++;
+        matched = true;
+        patternHits++;
         aiIndices.add(idx);
         break;
       }
+    }
+
+    // Check lexical marker density per sentence
+    const lower = s.cleanText;
+    let markersInSentence = 0;
+    for (const marker of CHATGPT_LEXICAL_MARKERS) {
+      if (lower.includes(marker)) {
+        markersInSentence++;
+        lexicalHits++;
+      }
+    }
+
+    if (markersInSentence >= 2 && !matched) {
+      aiIndices.add(idx);
     }
   });
 
@@ -432,30 +432,42 @@ export function detectAiGeneratedPatterns(sentences: RawSentence[]): AiDetection
     wordLengths.reduce((acc, len) => acc + Math.pow(len - meanLength, 2), 0) / wordLengths.length;
   const stdDev = Math.sqrt(variance);
 
+  // ChatGPT has exceptionally uniform sentence length (low burstiness: stdDev between 2.0 and 8.0)
+  // Only apply burstiness bonus if at least one AI pattern or marker was detected
   let burstinessBonus = 0;
-  if (stdDev < 7.5 && sentences.length >= 3) {
-    burstinessBonus = 25;
-  } else if (stdDev < 10.0) {
-    burstinessBonus = 15;
+  if (patternHits > 0 || lexicalHits > 0) {
+    if (stdDev < 8.0 && sentences.length >= 3) {
+      burstinessBonus = 20;
+    } else if (stdDev < 11.0 && sentences.length >= 3) {
+      burstinessBonus = 10;
+    }
   }
 
-  const markerRatio = matchHits / Math.max(1, sentences.length);
-  let aiProbability = Math.round(markerRatio * 75 + burstinessBonus);
+  const sentenceRatio = patternHits / Math.max(1, sentences.length);
+  const lexicalRatio = lexicalHits / Math.max(1, sentences.length);
 
-  // If 20%+ of sentences or 2+ sentences matched hallmark ChatGPT formulas, score high AI confidence
-  if (markerRatio >= 0.20 || matchHits >= 2) {
-    aiProbability = Math.max(92, Math.min(99, aiProbability + 25));
-  } else if (markerRatio > 0.08 || matchHits >= 1) {
-    aiProbability = Math.max(65, aiProbability);
+  let aiProbability = 0;
+  if (patternHits > 0 || lexicalHits > 0) {
+    aiProbability = Math.round(sentenceRatio * 60 + lexicalRatio * 20 + burstinessBonus);
   }
 
-  aiProbability = Math.min(99, Math.max(5, aiProbability));
+  // If 2 or more sentences exhibit signature ChatGPT rhetorical templates,
+  // or if over 15% of sentences contain hallmark patterns:
+  if (patternHits >= 2 || sentenceRatio >= 0.15 || lexicalHits >= 4) {
+    aiProbability = Math.max(93, Math.min(99, aiProbability + 35));
+  } else if (patternHits >= 1 || lexicalHits >= 2) {
+    aiProbability = Math.max(78, aiProbability + 20);
+  }
 
-  let aiVerdict = 'Human Written (Low AI Patterns)';
+  aiProbability = Math.min(99, Math.max(0, aiProbability));
+
+  let aiVerdict = 'Human Authored (100% Original)';
   if (aiProbability >= 75) {
     aiVerdict = 'High AI Probability (Likely ChatGPT / LLM Generated)';
   } else if (aiProbability >= 40) {
     aiVerdict = 'Moderate AI Patterns (Mixed / Assisted Writing)';
+  } else if (aiProbability > 0) {
+    aiVerdict = 'Human Written (Low AI Patterns)';
   }
 
   return {
@@ -467,24 +479,27 @@ export function detectAiGeneratedPatterns(sentences: RawSentence[]): AiDetection
 }
 
 /**
- * Helper to call external custom API (Gemini, OpenAI, or custom REST endpoint) if configured
+ * Helper to query external AI detector (Winston AI / Gemini / OpenAI)
+ * solely for AI Generation probability, without short-circuiting plagiarism detection
  */
-async function callExternalApiIfConfigured(
+async function fetchExternalAiProbability(
   submittedText: string,
   onProgress?: (step: number, stepText: string, percent: number) => void
-): Promise<NLPAnalysisResult | null> {
+): Promise<{ aiScore: number; sentenceScores?: number[] } | null> {
   if (!isCustomApiConfigured()) return null;
 
   try {
     const rawKey = API_CONFIG.apiKey.trim();
     const endpoint = API_CONFIG.apiEndpoint?.trim();
 
-    onProgress?.(2, 'Connecting to configured external API service...', 40);
-
-    // Case 0: Winston AI API (key starts with wltr_)
-    if (rawKey.startsWith('wltr_') || API_CONFIG.provider === 'winston') {
+    // Winston AI requires at least 300 characters
+    if (submittedText.length >= 300 && (rawKey.startsWith('wltr_') || API_CONFIG.provider === 'winston' || rawKey.length === 48)) {
       try {
-        const winstonUrl = endpoint || 'https://api.gowinston.ai/v2/ai-content-detection';
+        const isBrowser = typeof window !== 'undefined';
+        const winstonUrl =
+          isBrowser && endpoint
+            ? endpoint
+            : 'https://api.gowinston.ai/v2/ai-content-detection';
         const winstonRes = await fetch(winstonUrl, {
           method: 'POST',
           headers: {
@@ -500,226 +515,28 @@ async function callExternalApiIfConfigured(
 
         if (winstonRes.ok) {
           const wData = await winstonRes.json();
-          let aiScore = 96;
+          // In Winston AI v5.0: "score" is the Human Score (0-100).
+          // Therefore, AI Generation Probability = 100 - humanScore
+          let aiScore = 50;
           if (typeof wData.score === 'number') {
-            aiScore = wData.score > 1 ? Math.round(wData.score) : Math.round(wData.score * 100);
+            aiScore = Math.max(1, Math.min(99, Math.round(100 - wData.score)));
           } else if (typeof wData.human_score === 'number') {
-            aiScore = Math.max(0, 100 - Math.round(wData.human_score));
-          } else if (typeof wData.result?.score === 'number') {
-            aiScore = wData.result.score;
+            aiScore = Math.max(1, Math.min(99, Math.round(100 - wData.human_score)));
           }
 
-          const rawSentences = segmentSentences(submittedText);
-          const totalWords = tokenize(submittedText, false).length;
-          const refs = resolveUniversalReferences(submittedText);
+          const winstonSentences = Array.isArray(wData.sentences) ? wData.sentences : [];
+          const sentenceScores = winstonSentences.map((s: { score?: number }) =>
+            typeof s.score === 'number' ? Math.max(1, Math.min(99, Math.round(100 - s.score))) : aiScore
+          );
 
-          const similarityPercentage = Math.round(aiScore * 0.92 * 10) / 10;
-          const originalityPercentage = Math.round((100 - similarityPercentage) * 10) / 10;
-
-          const matches: TextMatchSpan[] = rawSentences.map((s, idx) => ({
-            id: `span-${idx}`,
-            sentenceIndex: idx,
-            text: s.text,
-            cleanText: s.cleanText,
-            startIndex: s.startIndex,
-            endIndex: s.endIndex,
-            similarityScore: aiScore,
-            matchType: aiScore > 60 ? 'VERBATIM' : 'PARAPHRASE',
-            isAiPattern: aiScore > 40,
-            sourceName: refs[0]?.title || 'Academic Reference Index',
-            sourceUrl: refs[0]?.url || 'https://en.wikipedia.org',
-            matchedSourceExcerpt: refs[0]?.content.slice(0, 160) + '...'
-          }));
-
-          return {
-            similarityPercentage,
-            originalityPercentage,
-            aiProbabilityPercentage: aiScore,
-            aiVerdict:
-              aiScore >= 75 ? 'High AI Probability (Winston AI Live API Confirmed)' : 'Human / Low AI',
-            riskLevel: aiScore >= 70 ? 'HIGH' : aiScore >= 35 ? 'MODERATE' : 'LOW',
-            wordCount: totalWords,
-            characterCount: submittedText.length,
-            sentenceCount: rawSentences.length,
-            processingTimeMs: 400,
-            sources: refs.slice(0, 3).map((r, i) => ({
-              id: i + 1,
-              analysisId: 0,
-              sourceName: r.title,
-              sourceUrl: r.url,
-              matchedText: r.content.slice(0, 180) + '...',
-              matchPercentage: Math.round((similarityPercentage / (i + 1.5)) * 10) / 10,
-              matchedPhrasesCount: Math.max(2, Math.round(rawSentences.length / (i + 1)))
-            })),
-            matches,
-            findingsSummary: `Winston AI Live API audited this submission and reported ${aiScore}% AI generation probability.`,
-            methodology: 'Winston AI Content Detection API + PlagiCheck Reference Alignment'
-          };
+          return { aiScore, sentenceScores };
         }
       } catch (e) {
-        console.warn('Winston AI API call failed or pending account activation:', e);
-      }
-    }
-
-    // Case 1: Sapling AI Detector API
-    if (API_CONFIG.provider === 'sapling' || endpoint?.includes('sapling')) {
-      const saplingUrl = endpoint || 'https://api.sapling.ai/api/v1/aidetect';
-      const saplingRes = await fetch(saplingUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: rawKey, text: submittedText })
-      });
-
-      if (saplingRes.ok) {
-        const sData = await saplingRes.json();
-        const score = typeof sData.score === 'number' ? sData.score : 0.95;
-        const aiProbability = Math.round(score * 100);
-        const rawSentences = segmentSentences(submittedText);
-        const totalWords = tokenize(submittedText, false).length;
-        const refs = resolveUniversalReferences(submittedText);
-
-        const similarityPercentage = Math.round(aiProbability * 0.92 * 10) / 10;
-        const originalityPercentage = Math.round((100 - similarityPercentage) * 10) / 10;
-
-        const matches: TextMatchSpan[] = rawSentences.map((s, idx) => ({
-          id: `span-${idx}`,
-          sentenceIndex: idx,
-          text: s.text,
-          cleanText: s.cleanText,
-          startIndex: s.startIndex,
-          endIndex: s.endIndex,
-          similarityScore: aiProbability,
-          matchType: aiProbability > 60 ? 'VERBATIM' : 'PARAPHRASE',
-          isAiPattern: aiProbability > 40,
-          sourceName: refs[0]?.title || 'Academic Reference Index',
-          sourceUrl: refs[0]?.url || 'https://en.wikipedia.org',
-          matchedSourceExcerpt: refs[0]?.content.slice(0, 160) + '...'
-        }));
-
-        return {
-          similarityPercentage,
-          originalityPercentage,
-          aiProbabilityPercentage: aiProbability,
-          aiVerdict: aiProbability >= 75 ? 'High AI Probability (Sapling AI Detector Confirmed)' : 'Low AI Probability',
-          riskLevel: aiProbability >= 70 ? 'HIGH' : aiProbability >= 35 ? 'MODERATE' : 'LOW',
-          wordCount: totalWords,
-          characterCount: submittedText.length,
-          sentenceCount: rawSentences.length,
-          processingTimeMs: 400,
-          sources: refs.slice(0, 3).map((r, i) => ({
-            id: i + 1,
-            analysisId: 0,
-            sourceName: r.title,
-            sourceUrl: r.url,
-            matchedText: r.content.slice(0, 180) + '...',
-            matchPercentage: Math.round((similarityPercentage / (i + 1.5)) * 10) / 10,
-            matchedPhrasesCount: Math.max(2, Math.round(rawSentences.length / (i + 1)))
-          })),
-          matches,
-          findingsSummary: `Sapling AI Detector API evaluated this document at ${aiProbability}% AI generation probability.`,
-          methodology: 'Sapling AI Detector Neural Language Model + PlagiCheck Reference Alignment'
-        };
-      }
-    }
-
-    // Case 1: Custom REST Plagiarism Endpoint
-    if (endpoint) {
-      const resp = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${rawKey}`,
-          'X-Api-Key': rawKey
-        },
-        body: JSON.stringify({ text: submittedText })
-      });
-
-      if (resp.ok) {
-        const data = await resp.json();
-        if (data && typeof data.similarityPercentage === 'number') {
-          return data as NLPAnalysisResult;
-        }
-      }
-    }
-
-    // Case 2: Google Gemini AI API
-    if (rawKey.startsWith('AIza') || API_CONFIG.provider === 'gemini') {
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(rawKey)}`;
-      const prompt = `You are an academic integrity and plagiarism detection auditor. Analyze the following submitted text:
-"""${submittedText}"""
-
-Respond ONLY with a valid JSON object matching this exact schema:
-{
-  "similarityPercentage": number between 0 and 100,
-  "originalityPercentage": number between 0 and 100,
-  "aiProbabilityPercentage": number between 0 and 100,
-  "aiVerdict": string (e.g. "High AI Probability (ChatGPT Generated)"),
-  "riskLevel": "LOW" | "MODERATE" | "HIGH",
-  "findingsSummary": string,
-  "sources": [
-    {
-      "id": 1,
-      "sourceName": string (e.g. "Wikipedia: Subject"),
-      "sourceUrl": string (e.g. "https://en.wikipedia.org/wiki/Subject"),
-      "matchedText": string (excerpt),
-      "matchPercentage": number,
-      "matchedPhrasesCount": number
-    }
-  ]
-}`;
-
-      const res = await fetch(geminiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { responseMimeType: 'application/json' }
-        })
-      });
-
-      if (res.ok) {
-        const resData = await res.json();
-        const jsonText = resData.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (jsonText) {
-          const parsed = JSON.parse(jsonText);
-          const rawSentences = segmentSentences(submittedText);
-          const totalWords = tokenize(submittedText, false).length;
-
-          const matches: TextMatchSpan[] = rawSentences.map((s, idx) => ({
-            id: `span-${idx}`,
-            sentenceIndex: idx,
-            text: s.text,
-            cleanText: s.cleanText,
-            startIndex: s.startIndex,
-            endIndex: s.endIndex,
-            similarityScore: parsed.similarityPercentage || 85,
-            matchType: (parsed.similarityPercentage || 85) > 60 ? 'VERBATIM' : 'PARAPHRASE',
-            isAiPattern: (parsed.aiProbabilityPercentage || 95) > 50,
-            sourceName: parsed.sources?.[0]?.sourceName || 'Wikipedia Reference Database',
-            sourceUrl: parsed.sources?.[0]?.sourceUrl || 'https://en.wikipedia.org',
-            matchedSourceExcerpt: parsed.sources?.[0]?.matchedText || s.text
-          }));
-
-          return {
-            similarityPercentage: parsed.similarityPercentage ?? 88,
-            originalityPercentage: parsed.originalityPercentage ?? 12,
-            aiProbabilityPercentage: parsed.aiProbabilityPercentage ?? 96,
-            aiVerdict: parsed.aiVerdict || 'High AI Probability (Likely ChatGPT Generated)',
-            riskLevel: parsed.riskLevel || 'HIGH',
-            wordCount: totalWords,
-            characterCount: submittedText.length,
-            sentenceCount: rawSentences.length,
-            processingTimeMs: 420,
-            sources: parsed.sources || [],
-            matches,
-            findingsSummary: parsed.findingsSummary || 'External API analysis completed successfully.',
-            methodology: 'Live External API & Neural Vector Verification'
-          };
-        }
+        console.warn('Winston AI query failed:', e);
       }
     }
   } catch (err) {
-    console.warn('External custom API call failed, continuing with built-in engine:', err);
+    console.warn('External AI query error:', err);
   }
 
   return null;
@@ -734,18 +551,9 @@ export async function analyzePlagiarism(
 ): Promise<NLPAnalysisResult> {
   const startTime = performance.now();
 
-  // If a custom API key was provided, try calling it first
-  if (isCustomApiConfigured()) {
-    const customResult = await callExternalApiIfConfigured(submittedText, onProgress);
-    if (customResult) {
-      onProgress?.(5, 'Analysis complete via Custom API', 100);
-      return customResult;
-    }
-  }
-
   // Step 1: Preprocessing & Tokenization
   onProgress?.(1, 'Normalizing text, segmenting sentences, and calculating token vocabulary', 15);
-  await new Promise((r) => setTimeout(r, 80));
+  await new Promise((r) => setTimeout(r, 60));
 
   const rawSentences = segmentSentences(submittedText);
   const totalWords = tokenize(submittedText, false).length;
@@ -770,16 +578,42 @@ export async function analyzePlagiarism(
     };
   }
 
-  // Step 2: N-gram Shingling & AI Pattern Detection
-  onProgress?.(2, 'Extracting 2/3/4-gram shingles & analyzing ChatGPT structural discourse', 35);
-  await new Promise((r) => setTimeout(r, 100));
+  // Step 2: N-gram Shingling & AI Pattern Detection (Local Discourse + Winston AI Live)
+  onProgress?.(2, 'Extracting 2/3/4-gram shingles & analyzing AI generation signatures', 35);
+  await new Promise((r) => setTimeout(r, 60));
 
-  const aiDetection = detectAiGeneratedPatterns(rawSentences);
+  let aiDetection = detectAiGeneratedPatterns(rawSentences);
+
+  if (isCustomApiConfigured()) {
+    try {
+      const externalAi = await fetchExternalAiProbability(submittedText);
+      if (externalAi) {
+        const isExternalAiHigh = externalAi.aiScore >= 70;
+        aiDetection = {
+          aiProbabilityPercentage: externalAi.aiScore,
+          aiVerdict:
+            externalAi.aiScore >= 70
+              ? 'High AI Probability (Winston AI Live Verified)'
+              : externalAi.aiScore >= 35
+              ? 'Moderate AI Patterns (Winston AI)'
+              : 'Human Written (Winston AI Verified)',
+          flaggedSentencesCount: isExternalAiHigh ? rawSentences.length : aiDetection.flaggedSentencesCount,
+          aiIndices: isExternalAiHigh ? new Set(rawSentences.map((_, i) => i)) : aiDetection.aiIndices
+        };
+      }
+    } catch {
+      // Keep local pattern detection
+    }
+  }
+
   const isHighAi = aiDetection.aiProbabilityPercentage >= 75;
 
-  // Step 3: Universal Reference Resolution & Wikipedia Querying
-  onProgress?.(3, 'Querying Wikipedia database and retrieving domain reference literature', 60);
-  const allReferences = resolveUniversalReferences(submittedText);
+  // Step 3: Multi-Search Engine & Live Wikipedia Aggregation
+  onProgress?.(3, 'Querying Live Wikipedia API, DuckDuckGo, Crossref Academic & Open Library in parallel', 60);
+  const liveResults = await searchAllConnectedEngines(submittedText);
+  const localReferences = resolveUniversalReferences(submittedText);
+  // Merge live search results with local knowledge base
+  const allReferences = liveResults.length > 0 ? [...liveResults, ...localReferences.slice(0, 2)] : localReferences;
 
   // Step 4: TF-IDF Vectorization & Cosine Similarity
   onProgress?.(4, 'Computing TF-IDF vector matrix & cosine similarity metrics across corpus', 80);
@@ -832,10 +666,23 @@ export async function analyzePlagiarism(
     let bestSourceExcerpt = '';
 
     for (const ref of referenceAnalysis) {
+      // Direct whole-article text check against live Wikipedia and search results
+      const refClean = normalizeText(ref.refDoc.content);
+      if (
+        submittedSentence.cleanText.length > 15 &&
+        (refClean.includes(submittedSentence.cleanText) ||
+          (refClean.length > 30 && submittedSentence.cleanText.includes(refClean.slice(0, 45))))
+      ) {
+        bestScore = 0.98;
+        bestSource = ref.refDoc;
+        bestSourceExcerpt = ref.refDoc.content.slice(0, 180) + '...';
+        continue;
+      }
+
       for (const refItem of ref.refShingles) {
-        // Direct verbatim substring check
+        // Direct verbatim sentence substring check
         if (
-          submittedSentence.cleanText.length > 20 &&
+          submittedSentence.cleanText.length > 18 &&
           (refItem.cleanText.includes(submittedSentence.cleanText) ||
             submittedSentence.cleanText.includes(refItem.cleanText))
         ) {
@@ -854,7 +701,14 @@ export async function analyzePlagiarism(
         const jaccard3 = computeJaccardSimilarity(sentence3Grams, refItem.ngrams3);
         const jaccard4 = computeJaccardSimilarity(sentence4Grams, refItem.ngrams4);
 
-        const combinedScore = jaccardTokens * 0.40 + jaccard2 * 0.25 + jaccard3 * 0.20 + jaccard4 * 0.15;
+        let combinedScore = jaccardTokens * 0.40 + jaccard2 * 0.25 + jaccard3 * 0.20 + jaccard4 * 0.15;
+
+        // If significant lexical overlap exists with academic source
+        if (jaccardTokens >= 0.60) {
+          combinedScore = Math.max(combinedScore, 0.90);
+        } else if (jaccardTokens >= 0.40) {
+          combinedScore = Math.max(combinedScore, 0.75);
+        }
 
         if (combinedScore > bestScore) {
           bestScore = combinedScore;
@@ -961,7 +815,16 @@ export async function analyzePlagiarism(
         sourceUrl: item.doc.url,
         matchedText: item.sampleMatch || item.doc.content.slice(0, 180) + '...',
         matchPercentage: Math.min(100, Math.max(sourceMatchPercentage, 12.5)),
-        matchedPhrasesCount: Math.max(item.matchedPhrases, 1)
+        matchedPhrasesCount: Math.max(item.matchedPhrases, 1),
+        searchEngine:
+          item.doc.searchEngine ||
+          (item.doc.title.includes('Wikipedia')
+            ? 'Wikipedia Live API'
+            : item.doc.title.includes('Crossref')
+            ? 'Crossref Academic DOI'
+            : item.doc.title.includes('DuckDuckGo')
+            ? 'DuckDuckGo Web Search'
+            : 'Open Library Archive')
       });
     }
   }
@@ -976,7 +839,8 @@ export async function analyzePlagiarism(
         sourceUrl: doc.url,
         matchedText: doc.content.slice(0, 180) + '...',
         matchPercentage: Math.round((similarityPercentage / (idx + 1.8)) * 10) / 10,
-        matchedPhrasesCount: Math.max(2, Math.round(rawSentences.length / (idx + 1)))
+        matchedPhrasesCount: Math.max(2, Math.round(rawSentences.length / (idx + 1))),
+        searchEngine: doc.searchEngine || 'Wikipedia Live API'
       });
     });
   }
@@ -999,7 +863,7 @@ export async function analyzePlagiarism(
   if (isHighAi) {
     findingsSummary = `High AI generation likelihood confirmed (${aiDetection.aiProbabilityPercentage}%). The document exhibits formulaic ChatGPT generative discourse structures and matches ${similarityPercentage}% against encyclopedic reference literature across ${sources.length} identified reference sources.`;
   } else if (similarityPercentage > 35) {
-    findingsSummary = `Significant plagiarism risk of ${similarityPercentage}% identified. Several verbatim or closely paraphrased passages were matched directly against published reference materials.`;
+    findingsSummary = `High plagiarism risk of ${similarityPercentage}% detected. Passages match directly against ${sources[0]?.sourceName || 'Wikipedia reference articles'}. The text appears copied from published reference materials without academic quotation or attribution.`;
   } else if (similarityPercentage >= 15) {
     findingsSummary = `Moderate similarity of ${similarityPercentage}% detected across ${sources.length} reference source(s). Some sentences appear closely paraphrased from academic and reference literature.`;
   } else {

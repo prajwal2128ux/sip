@@ -25,16 +25,16 @@ export async function hashPassword(plainText: string): Promise<string> {
 const SEED_USERS: User[] = [
   {
     id: 1,
-    name: 'Dr. Alex Morgan',
-    email: 'alex.morgan@university.edu',
-    role: 'Faculty / Researcher',
+    name: 'My Account',
+    email: 'user@academic.edu',
+    role: 'Academic Member',
     institution: 'Department of Computer Science & Engineering',
     createdAt: '2026-09-15T09:30:00.000Z'
   },
   {
     id: 2,
-    name: 'Elena Rostova',
-    email: 'elena.student@university.edu',
+    name: 'Student Account',
+    email: 'student@academic.edu',
     role: 'Graduate Student',
     institution: 'School of Natural & Environmental Sciences',
     createdAt: '2026-09-20T14:15:00.000Z'
@@ -352,18 +352,16 @@ class DatabaseService {
   }
 
   public getCurrentUser(): User | null {
-    if (typeof window === 'undefined') return SEED_USERS[0];
+    if (typeof window === 'undefined') return null;
     const data = localStorage.getItem(DB_KEY_CURRENT_USER);
     if (data) {
       try {
         return JSON.parse(data);
       } catch {
-        return SEED_USERS[0];
+        return null;
       }
     }
-    // Default to Dr. Alex Morgan for seamless experience
-    this.setCurrentUser(SEED_USERS[0]);
-    return SEED_USERS[0];
+    return null;
   }
 
   public setCurrentUser(user: User | null): void {
