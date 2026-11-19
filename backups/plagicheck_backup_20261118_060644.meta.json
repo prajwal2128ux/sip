@@ -1,0 +1,14 @@
+{
+  "backup_file": "plagicheck_backup_20261118_060644.enc",
+  "timestamp": "20261118_060644",
+  "unencrypted_sha256": "5fccc9a872b8a79a826aea387835580cc6f455e9ecf7e989f16740d3937869f1",
+  "encrypted_sha256": "1c7c2b10036056e0e636a8b2867c22da46cfb64f779b5ca506f51e97310cd5f0",
+  "records_count": {
+    "users": 2,
+    "analyses": 0,
+    "analysis_sources": 0,
+    "reports": 0,
+    "security_audit_logs": 2
+  },
+  "encryption": "AES-256 (Fernet CBC + HMAC-SHA256)"
+}

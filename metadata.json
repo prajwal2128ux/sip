@@ -1,0 +1,6 @@
+{
+  "name": "PlagiCheck - Academic Plagiarism Detection System",
+  "description": "An open-source academic plagiarism detection system featuring text preprocessing, reference content search, TF-IDF and n-gram similarity analysis, and comprehensive originality reports.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
