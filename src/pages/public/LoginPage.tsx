@@ -263,7 +263,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate }) => {
                 className="w-full mt-2 py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-lg shadow-xs transition-colors flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
               >
                 <LogIn className="w-4 h-4" />
-                <span>{loading ? 'Signing In...' : 'Sign In'}</span>
+                <span>{loading ? 'Verifying Credentials...' : 'Continue with Email OTP'}</span>
               </button>
             </form>
           )}
