@@ -141,6 +141,8 @@ class TestConfig(Config):
     ENV = 'testing'
     REQUIRE_EMAIL_OTP = True
     OTP_DEV_MODE = True
+    RESEND_API_KEY = ''
+    BREVO_API_KEY = ''
     SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
     RATELIMIT_ENABLED = False
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=5)
